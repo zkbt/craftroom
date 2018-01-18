@@ -1,8 +1,11 @@
+'''custom colormaps for use with matplotlib scatter and imshow'''
 import matplotlib.colors as co
 import numpy as np
 
 def name2color(name):
-	"""Return the 3-element RGB array of a given color name."""
+	'''
+	Return the 3-element RGB array of a given color name.
+	'''
 	return co.hex2color(co.cnames[name])
 
 def one2another(bottom='white', top='red', alphatop=1.0, alphabottom=1.0, N=256):
