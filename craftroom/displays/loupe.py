@@ -70,13 +70,19 @@ class loupe(Display):
 
     @property
     def ok_slicex(self):
-        i = np.int(np.interp(self.crosshair['y'], self.yaxis, np.arange(len(self.yaxis))))
-        return self.ok[:,i]
+        if self.ok == None:
+            return np.ones_like(self.xaxis).astype(np.bool)
+        else:
+            i = np.int(np.interp(self.crosshair['y'], self.yaxis, np.arange(len(self.yaxis))))
+            return self.ok[:,i]
 
     @property
     def ok_slicey(self):
-        i = np.int(np.interp(self.crosshair['x'], self.xaxis, np.arange(len(self.xaxis))))
-        return self.ok[i,:]
+        if self.ok == None:
+            return np.ones_like(self.yaxis).astype(np.bool)
+        else:
+            i = np.int(np.interp(self.crosshair['x'], self.xaxis, np.arange(len(self.xaxis))))
+            return self.ok[i,:]
 
     @property
     def slicey(self):
