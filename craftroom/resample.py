@@ -135,21 +135,171 @@ def fluxconservingresample(xin, yin, xout, test=False, visualize=False, demo=Fal
 	# return the resampled y-values
 	return yout
 
+def bintogrid(x, y, unc, newx=None, dx=None):
+    '''
+    x = the independent variable (wavelength)
+    y = the measurement (transit depth)
+    unc = the uncertainty on the measurement (sigmas on the transit depths)
+    newx = a (linearly) uniformly spaced grid onto which we should bin
+    dx = if newx isn't set, then create a grid with this fixed spacing
+
+    Right now, this works only on 1-dimenions arrays,
+    but in the long term we should update it to work in 
+    for arbitrary N-dimensional arrays.
+    
+    Arrays must be ordered from decreasing to increasing x.
+    '''
+    
+    # make up a grid, if one wasn't specified
+    if newx is None:
+        newx = np.arange(np.min(x), np.max(x) + dx, dx)
+    
+    # don't complain about zero-divisions in here (just make uncertainties -> infinity)
+    with np.errstate(divide='ignore',invalid='ignore'):
+        
+        # resample the sums onto that new grid (in logarithmic space)
+        inversevariance = 1/unc**2
+        numerator = fluxconservingresample(x, y*inversevariance, newx, visualize=False)
+        denominator = fluxconservingresample(x, inversevariance, newx, visualize=False)
+
+        # the binned weighted means on the new grid
+        newy = numerator/denominator
+
+        # the standard error on the means, for those bins
+        newunc = np.sqrt(1/denominator)
+
+    # return binned x, y, unc
+    return newx, newy, newunc
+
+
+def bintoR(x, y, unc, R=50, xlim=None):
+    '''
+    x = the independent variable (wavelength)
+    y = the measurement (transit depth)
+    unc = the uncertainty on the measurement (sigmas on the transit depths)
+    R = the resolution (lambda/dlambda) to bin everything to
+    xlim = the limits of the new binned grid 
+            [if None, will be created from data]
+    
+    Right now, this works only on 1-dimenions arrays,
+    but in the long term we should update it to work in 
+    for arbitrary N-dimensional arrays.
+    
+    Arrays must be ordered from decreasing to increasing x.
+    '''
+    
+    # create a new grid of x at the given resolution
+    lnx = np.log(x)
+    dnewlnx = 1.0/R
+    
+    
+    # set the limits of the new xgrid (in log space)
+    if xlim is None:
+        # use the input grid to set the limits
+        lnxbottom, lnxtop = np.min(lnx), np.max(lnx)
+    else:
+        # use the custom xlim to set the limits
+        lnxbottom, lnxtop = xlim
+    
+    # create a new, log-uniform grid of x values
+    newlnx = np.arange(lnxbottom, lnxtop + dnewlnx, dnewlnx)
+    
+    # now do the binning on a uniform grid of lnx
+    blnx, by, bunc = bintogrid(lnx, y, unc, newx=newlnx)
+    return np.exp(blnx), by, bunc
+
+
+
+    
+def testgrid(dx=1.0, N=500, snr=1000, seed=42, irregular=False):
+    '''
+    a simple test to show how binning to a grid works
+    '''
+    
+    
+    print('Testing binning {} {} data binned to dx={}\n'.format(N, {True:'irregularly gridded', False:'gridded'}[irregular], dx))
+
+
+    # set up fake arrays
+    np.random.seed(seed)
+    if irregular:
+        x = np.sort(np.random.uniform(0.5, 25, N))
+    else:
+        x = np.linspace(0.5, 25, N)
+    unc = np.ones_like(x)/snr
+    model = np.zeros_like(x) + np.exp(-0.5*(x-5)**2/2**2)*0.01# x*0.0002
+    y = np.random.normal(model, unc, N)
+
+
+    bx, by, bunc = bintogrid(x, y, unc, dx=dx)
+
+    # plot the demonstrations
+    plt.figure()
+    plt.errorbar(x, y, unc, color='gray', linewidth=0, elinewidth=1, alpha=0.1)
+    plt.errorbar(bx, by, bunc, color='black', linewidth=0, elinewidth=3)
+    plt.xlabel('x'); plt.ylabel('y')
+    plt.title('{} {} data binned to dx={}'.format(N, {True:'irregularly gridded', False:'gridded'}[irregular], dx))
+    plt.show()
+    
+    # return the results
+    return bx, by, bunc
+
+
+def testR(R=10, N=500, snr=1000, seed=42, irregular=False):
+    '''
+    a simple test to show how binning to constant R works
+    '''
+    
+    print('Testing binning {} {} data binned to R={}\n'.format(N, {True:'irregularly gridded', False:'gridded'}[irregular], R))
+
+    # set up fake arrays
+    np.random.seed(seed)
+    if irregular:
+        x = np.sort(np.random.uniform(0.5, 25, N))
+    else:
+        x = np.linspace(0.5, 25, N)
+    unc = np.ones_like(x)/snr
+    model = np.zeros_like(x) + np.exp(-0.5*(x-5)**2/2**2)*0.01# x*0.0002
+    y = np.random.normal(model, unc, N)
+
+    bx, by, bunc = bintoR(x, y, unc, R=R)
+
+    # plot the demonstrations
+    plt.figure()
+    plt.errorbar(x, y, unc, color='gray', linewidth=0, elinewidth=1, alpha=0.1)
+    plt.errorbar(bx, by, bunc, color='black', linewidth=0, elinewidth=3)
+    plt.xscale('log')
+    plt.xlabel('x'); plt.ylabel('y')
+    plt.title('{} {} data binned to R={}'.format(N, {True:'irregularly gridded', False:'gridded'}[irregular], R))
+    plt.show()
+    
+    # return the results
+    return bx, by, bunc
+
 def testFCR(supersample=True):
-	'''this function tests out the resampling code
+    '''this function tests out the resampling code
 
-			supersample=True
-				means that there will be multiple new pixels per original pixel
+            supersample=True
+                means that there will be multiple new pixels per original pixel
 
-			supersample=False
-				means that there will be fewer new pixels than original pixels
-	'''
+            supersample=False
+                means that there will be fewer new pixels than original pixels
+    '''
 
-	xinitial = np.arange(39,47)
-	yinitial = np.random.uniform(0.0, 0.1, len(xinitial))
-	if supersample:
-		xresample = np.linspace(np.min(xinitial) - 1.5, np.max(xinitial) + 1.5)
-	else:
-		xresample = np.linspace(-1,8,5)
-	yresample = fluxconservingresample(xinitial, yinitial, xresample, visualize=True)
-	plt.savefig('interpolationdemo.pdf')
+    print("Testing flux-conserving resampling, when {}supersampling the original grid\n".format({True:'', False:'not '}[supersample]))
+    xinitial = np.arange(39,47)
+    yinitial = np.random.uniform(0.0, 0.1, len(xinitial))
+    if supersample:
+        xresample = np.linspace(np.min(xinitial) - 1.5, np.max(xinitial) + 1.5, 50)
+    else:
+        xresample = np.linspace(np.min(xinitial) - 1.5, np.max(xinitial) + 1.5, 5)
+    yresample = fluxconservingresample(xinitial, yinitial, xresample, visualize=True)
+    plt.show()
+
+def test():
+    testFCR()
+    testFCR(supersample=False)
+    testR(R=10)
+    testR(R=10, irregular=True)
+    testgrid(dx=0.5)
+    testgrid(dx=0.5, irregular=True)
