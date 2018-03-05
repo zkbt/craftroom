@@ -10,7 +10,7 @@ class Display(Talker):
         Talker.__init__(self)
 
 
-def createTestImage(xsize=500, ysize=250):
+def createTestImage(xsize=250, ysize=500):
     '''
     Create a fake image of stars.
     '''
