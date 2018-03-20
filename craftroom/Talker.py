@@ -3,6 +3,9 @@ If something inherits from Talker, then we can print
 text to the terminal in a relatively standard way.
 '''
 import textwrap, numpy as np, pprint
+import sys
+if sys.version_info[0] < 3:
+    input = raw_input
 
 shortcuts = None
 line = np.inf

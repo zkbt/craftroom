@@ -5,6 +5,7 @@ import craftroom.oned
 import matplotlib.pyplot as plt
 import matplotlib.animation as ani
 import os
+from tqdm import tqdm
 
 class loupe(Display):
     '''
@@ -54,23 +55,10 @@ class loupe(Display):
                             function=self.moveCrosshair,
                             requiresposition=False)
 
-    def setImage(self, image):
-        '''
-        Change the image that's being shown.
-        '''
-
-        # set the image
-        self.image = image
-
-        # set its x and y limits, extent, and axes
-        xsize = self.imagetoplot.shape[1]
-        ysize = self.imagetoplot.shape[0]
-        self.xaxis = np.arange(xsize)
-        self.yaxis = np.arange(ysize)
 
     @property
     def ok_slicex(self):
-        if self.ok == None:
+        if self.ok is None:
             return np.ones_like(self.xaxis).astype(np.bool)
         else:
             i = np.int(np.interp(self.crosshair['y'], self.yaxis, np.arange(len(self.yaxis))))
@@ -78,7 +66,7 @@ class loupe(Display):
 
     @property
     def ok_slicey(self):
-        if self.ok == None:
+        if self.ok is None:
             return np.ones_like(self.yaxis).astype(np.bool)
         else:
             i = np.int(np.interp(self.crosshair['x'], self.xaxis, np.arange(len(self.xaxis))))
@@ -157,18 +145,26 @@ class loupe(Display):
         '''
         Initialize the loupe
         (this has a pretty big overhead,
-        so use "setImage" if you can to update
+        so use "updateImage" if you can to update
         the data being displayed)
         '''
 
         self.ok = ok
-
+        self.image = image
         # set the image
-        self.setImage(image)
         if xaxis is not None:
             self.xaxis = xaxis
+        else:
+            xsize = self.imagetoplot.shape[1]
+            self.xaxis = np.arange(xsize)
         if yaxis is not None:
             self.yaxis = yaxis
+        else:
+            ysize = self.imagetoplot.shape[0]
+            self.yaxis = np.arange(ysize)
+
+        self.dx = np.median(np.diff(self.xaxis))
+        self.dy = np.median(np.diff(self.yaxis))
 
         self.speak('setting up loupe')
 
@@ -374,13 +370,13 @@ class loupe(Display):
             self.crosshair['x'] = x
             self.crosshair['y'] = y
         elif pressed.key == 'up':
-            self.crosshair['y'] += 1
+            self.crosshair['y'] += self.dy
         elif pressed.key == 'down':
-            self.crosshair['y'] -= 1
+            self.crosshair['y'] -= self.dy
         elif pressed.key == 'left':
-            self.crosshair['x'] -= 1
+            self.crosshair['x'] -= self.dx
         elif pressed.key == 'right':
-            self.crosshair['x'] += 1
+            self.crosshair['x'] += self.dx
         else:
             x = pressed.xdata
             y = pressed.ydata
@@ -407,6 +403,7 @@ class loupe(Display):
 
             #self.plotted['slicey'].set_alpha(*self.alpha_slicey)
             self.ax['slicey'].set_xlim(0, self.slicey[0].max())
+
         if self.crosshair['y'] != None:
             h, v = self.slicex
             ok = self.ok_slicex
@@ -415,7 +412,7 @@ class loupe(Display):
 
             #self.plotted['slicex'].set_alpha(*self.alpha_slicex)
 
-            self.ax['slicex'].set_ylim(0, self.slicex[1].max())
+            self.ax['slicex'].set_ylim(0, np.nanmax(self.slicex[1]))
 
         vmin, vmax = self.plotted['2d'].get_clim()
         self.set_limits(vmin, vmax)
@@ -442,9 +439,8 @@ class loupe(Display):
         modifiedfilename = filename.replace('.mp4', '+stride{}.mp4'.format(stride))
 
         if (remake == False) and os.path.exists(modifiedfilename):
-            answer = self.input('A movie already exists at {}; do you want to overwrite?'.format(filename))
-            if ('y' not in answer.lower()):
-              return
+            self.speak('A movie already exists at {}; re-run with remake=True to do something.'.format(filename))
+            return
 
         # plot the first spectrum, to set up the plots
         plt.ioff()
@@ -452,14 +448,14 @@ class loupe(Display):
         # make the movie
         with writer.saving(self.figure, modifiedfilename, self.figure.get_dpi()):
             if direction == 'x':
-                for i, x in enumerate(self.xaxis[::stride]):
-                    self.speak('   plotting {0}/{1}'.format(i*stride, len(self.xaxis)))
+                for i, x in enumerate(tqdm(self.xaxis[::stride])):
+                    #self.speak('   plotting {0}/{1}'.format(i*stride, len(self.xaxis)))
                     self.moveCrosshair(x=x)
                     writer.grab_frame()
 
             if direction == 'y':
-                for i, y in enumerate(self.yaxis[::stride]):
-                    self.speak('   plotting {0}/{1}'.format(i*stride, len(self.yaxis)))
+                for i, y in enumerate(tqdm(self.yaxis[::stride])):
+                    #self.speak('   plotting {0}/{1}'.format(i*stride, len(self.yaxis)))
                     self.moveCrosshair(y=y)
                     writer.grab_frame()
 
