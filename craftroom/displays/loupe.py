@@ -402,7 +402,7 @@ class loupe(Display):
             self.plotted['slicey_bad'].set_data(h[ok==False], v[ok==False])
 
             #self.plotted['slicey'].set_alpha(*self.alpha_slicey)
-            self.ax['slicey'].set_xlim(0, self.slicey[0].max())
+            self.ax['slicey'].set_xlim(0, np.nanmax(self.slicey[0]))
 
         if self.crosshair['y'] != None:
             h, v = self.slicex
@@ -421,8 +421,8 @@ class loupe(Display):
                             fps=30, # how many frames per second
                             bitrate=1800*20, # bitrate (this seems to work well),
                             remake=False, # should we remake it?
-                            stride=500,
-                            filename='movie.mp4',
+                            stride=500, # how many steps do we take with the movie?
+                            filename='movie.mp4', # where should the movie be saved?
                             **kw):# each frame will skip over this many timepoints):
         '''Create movie of the spectral cube.'''
 
