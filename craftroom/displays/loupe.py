@@ -175,7 +175,7 @@ class loupe(Display):
                     height_ratios=[0.1, 1.0],
                     initialcrosshairs=[0.0, 0.0], # where the crosshairs should start
                     aspect='equal', # kwargs for imshow
-                    vmin=None, vmax=None, scale='symlog',
+                    vmin=None, vmax=None, scale='symlog',       # make a default that can be edited interactively (in Mask.py)
                     labelfontsize=5,
                     datacolor='darkorange',
                     crosshaircolor='darkorange',
@@ -268,7 +268,7 @@ class loupe(Display):
                                                   aspect=aspect,
                                                   zorder=0,
                                                   origin='lower',
-                                                  norm=None)
+                                                  norm=norm)
 
 
         # set the x and y limits
