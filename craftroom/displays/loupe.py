@@ -14,8 +14,10 @@ class loupe(Display):
     in a matplotlib-like plot.
 
     It reproduces *a few* of the features
-    available from using IRAF display,
-    imexam, and ds9 to look at images interactively.
+    available from using IRAF display with imexam,
+    and ds9 to look at images interactively,
+    but allows slightly easier integration
+    with custom Python codes.
     '''
 
 
@@ -31,7 +33,7 @@ class loupe(Display):
         #   and whether the function needs to know the current mouse position
         self.options = {}
 
-        # qui
+        # quit the interactive loupe
         self.options['q'] = dict(description='[q]uit',
                             function=self.quit,
                             requiresposition=False)
@@ -58,6 +60,11 @@ class loupe(Display):
 
     @property
     def ok_slicex(self):
+        '''
+        Return an array of which elements are OK in the x-direction,
+        given the y-location of the current crosshair slice.
+        '''
+
         if self.ok is None:
             return np.ones_like(self.xaxis).astype(np.bool)
         else:
@@ -66,6 +73,10 @@ class loupe(Display):
 
     @property
     def ok_slicey(self):
+        '''
+        Return an array of which elements are OK in the y-direction,
+        given the x-location of the current crosshair slice.
+        '''
         if self.ok is None:
             return np.ones_like(self.yaxis).astype(np.bool)
         else:
@@ -74,7 +85,10 @@ class loupe(Display):
 
     @property
     def slicey(self):
-        '''return y, x of a slice along the spatial direction'''
+        '''
+        Return (z, y) of a slice in the y-direction,
+        for plotting in the vertical projection plot.
+        '''
 
         # figure out the column of the image associated with the crosshair's x
         i = np.int(np.interp(self.crosshair['x'], self.xaxis, np.arange(len(self.xaxis))))
@@ -82,7 +96,10 @@ class loupe(Display):
 
     @property
     def slicex(self):
-        '''return x, y of a slice along the wavelength direction'''
+        '''
+        Return (x, z) of a slice in the x-direction,
+        for plotting in the horizontal projection plot.
+        '''
 
         # figure out the column of the image associated with the crosshair's y
         i = np.int(np.interp(self.crosshair['y'], self.yaxis, np.arange(len(self.yaxis))))
@@ -90,12 +107,26 @@ class loupe(Display):
 
     @property
     def imagetoplot(self):
-        '''for plotting, the science image'''
+        '''
+        The image for plotting (transposed).
+        '''
 
         # show the transpose of the image in imshow
         return np.transpose(self.image)
 
     def one(self, image, **kwargs):
+        '''
+        For compatiability with other craftroom displays,
+        this will display a single image in a loupe.
+
+        Parameters
+        ----------
+        image : 2D array
+            the image to display
+
+        **kwargs will be passed on to loupe setup
+        '''
+
         # for compatibility with ds9
         self.setup(image, **kwargs)
 
@@ -104,8 +135,15 @@ class loupe(Display):
         Once the loupe has been set up,
         modify the image being shown
         (ideally without changing anything else.)
+
+        Parameters
+        ----------
+        image : 2D array
+            the image to display
         '''
 
+        # store the image
+        self.image = image
         #
         try:
             # have we already created a loupe here?
@@ -137,7 +175,7 @@ class loupe(Display):
                     height_ratios=[0.1, 1.0],
                     initialcrosshairs=[0.0, 0.0], # where the crosshairs should start
                     aspect='equal', # kwargs for imshow
-                    vmin=None, vmax=None, scale='symlog',
+                    vmin=None, vmax=None, scale='symlog',       # make a default that can be edited interactively (in Mask.py)
                     labelfontsize=5,
                     datacolor='darkorange',
                     crosshaircolor='darkorange',
@@ -230,7 +268,7 @@ class loupe(Display):
                                                   aspect=aspect,
                                                   zorder=0,
                                                   origin='lower',
-                                                  norm=None)
+                                                  norm=norm)
 
 
         # set the x and y limits
@@ -283,7 +321,7 @@ class loupe(Display):
             ):
 
         # update the plot
-        plt.draw()
+        # plt.draw()
 
         # keep track of whether we're finished
         self.notconverged = True
@@ -363,7 +401,19 @@ class loupe(Display):
     """
 
     def moveCrosshair(self, pressed=None, x=None, y=None):
-        '''use new values of w and s to move the crosshair and replot'''
+        '''
+        Move the crosshair to a new spot,
+        either based on a mouse position and a keypress,
+        or
+        Parameters
+        ----------
+        pressed : KeyEvent
+            the KeyEvent from a button being pressed
+        x : float, int, etc...
+            the x position to move the vertical crosshair to
+        y : float, int, etc...
+            the y position to move the horizontal crosshair to
+        '''
 
         # pull the values from the mouse click
         if pressed is None:
@@ -402,7 +452,7 @@ class loupe(Display):
             self.plotted['slicey_bad'].set_data(h[ok==False], v[ok==False])
 
             #self.plotted['slicey'].set_alpha(*self.alpha_slicey)
-            self.ax['slicey'].set_xlim(0, self.slicey[0].max())
+            #self.ax['slicey'].set_xlim(0, np.nanmax(self.slicey[0]))
 
         if self.crosshair['y'] != None:
             h, v = self.slicex
@@ -412,7 +462,7 @@ class loupe(Display):
 
             #self.plotted['slicex'].set_alpha(*self.alpha_slicex)
 
-            self.ax['slicex'].set_ylim(0, np.nanmax(self.slicex[1]))
+            #self.ax['slicex'].set_ylim(0, np.nanmax(self.slicex[1]))
 
         vmin, vmax = self.plotted['2d'].get_clim()
         self.set_limits(vmin, vmax)
@@ -421,8 +471,8 @@ class loupe(Display):
                             fps=30, # how many frames per second
                             bitrate=1800*20, # bitrate (this seems to work well),
                             remake=False, # should we remake it?
-                            stride=500,
-                            filename='movie.mp4',
+                            stride=500, # how many steps do we take with the movie?
+                            filename='movie.mp4', # where should the movie be saved?
                             **kw):# each frame will skip over this many timepoints):
         '''Create movie of the spectral cube.'''
 
