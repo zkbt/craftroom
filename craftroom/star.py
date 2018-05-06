@@ -4,6 +4,7 @@ import numpy as np
 import astropy.coordinates
 import astropy.units as u
 
+from astroquery.gaia import Gaia
 from astroquery.simbad import Simbad
 from craftroom.Talker import Talker
 
@@ -21,7 +22,9 @@ class Star(Talker):
 		Talker.__init__(self)
 
 		# decide how to initialize: use coordinates? or use simbad? or else?
-		if ra is not None and dec is not None:
+		if "Gaia" in name:
+			self.fromGaia(name, **kw)
+		elif ra is not None and dec is not None:
 			# create the star from the input coordinates
 			self.fromCoords(ra=ra, dec=dec, name=name, **kw)
 		elif name is not None:
@@ -128,6 +131,40 @@ class Star(Talker):
 		for k, v in attributes.items():
 			self.attributes[k] = v
 		self.speak('made {0} from SIMBAD'.format(self))
+
+	def fromGaia(self, name, **attributes):
+		self.attributes = attributes
+		self.name = name
+
+
+		assert('DR2' in name)
+		source_id = name.split()[-1]
+		query = 'SELECT source_id, ra, dec, pmra, pmdec, parallax, parallax_error, phot_g_mean_mag, phot_bp_mean_mag, phot_rp_mean_mag FROM gaiadr2.gaia_source WHERE source_id={}'.format(source_id)
+
+		self.speak("querying Gaia DR2 for {}".format(source_id))
+		result = Gaia.launch_job(query)
+
+		self.table = result.get_results()
+
+		ra = self.table['ra'].data[0]
+		dec = self.table['dec'].data[0]
+		gaiadr2_epoch = 2015.5
+		obstime = astropy.time.Time(gaiadr2_epoch, format='decimalyear')
+		self.icrs = astropy.coordinates.SkyCoord(ra, dec,
+												unit=(u.deg, u.deg),
+												frame='icrs', obstime=obstime)
+
+		self.pmra = self.table['pmra'].data[0] 		# in (projected) mas/yr
+		self.pmdec = self.table['pmdec'].data[0]	# in mas/yr
+
+		self.attributes = {}
+		self.attributes['G_gaia'] = float(self.table['phot_g_mean_mag'].data[0])
+		self.attributes['R_gaia'] = self.table['phot_rp_mean_mag'].data[0]
+		self.attributes['B_gaia'] = self.table['phot_bp_mean_mag'].data[0]
+
+		for k, v in attributes.items():
+			self.attributes[k] = v
+		self.speak('made {0} from Gaia DR2'.format(self))
 
 	def atEpoch(self, epoch, format='decimalyear'):
 		'''return the positions, at a particular epoch
