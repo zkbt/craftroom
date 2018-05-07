@@ -7,6 +7,7 @@ from astropy.io import fits
 from astropy.wcs import WCS
 import astropy.units as u, astropy.coordinates as coord
 from astropy.time import Time
+from astropy.table import Table
 
 from craftroom.star import Star
 from craftroom.Talker import Talker
@@ -74,13 +75,21 @@ class Catalog(Talker):
         # set up the talke for this catalog
         Talker.__init__(self)
 
+        self.center = center
+
+
         # populate this catalog from its archive source
         self.coneSearch(center, radius=radius, magnitudelimit=magnitudelimit, **kw)
 
-
         self.speak('{} contains {} objects'.format(self.name, len(self.objects)))
 
-
+        # set up a standardized table (a KLUDGE, maybe this should happen earlier?)
+        magnames, magdata = [], []
+        for k in self.magnitudes.keys():
+            magnames.append(k)
+            magdata.append(self.magnitudes[k])
+        self.table = Table([self.objects]+magdata, names=['coordinates']+magnames)
+        self.table['distance'] = self.objects.separation(self.center).arcsec
 
     def atEpoch(self, epoch=2000):
         '''
@@ -128,7 +137,15 @@ class Catalog(Talker):
                                     label=self.name,
                                     **kw)
 
+    def crossMatchTo(self, reference, radius=1*u.arcsec):
+        '''
+        Gaia will be the most likely reference.
+        '''
+        i_ref, d2d_ref, d3d_ref = self.objects.match_to_catalog_sky(reference.atEpoch(self.objects.obstime))
 
+        ok = d2d_ref < radius
+        plt.hist(d2d_ref.arcsec, range=(0,15))
+        return ok, i_ref[ok]
 
 
 
