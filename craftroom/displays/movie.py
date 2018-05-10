@@ -41,16 +41,16 @@ class Movie(Display):
         pngpattern = '{directory}formovie_*.png'.format(**locals())
         self.fromImages(pattern=pngpattern, **kwargs)
 
-    def fromImages(self, pattern, filename='movie.gif', **kwargs):
+    def fromImages(self, pattern, filename='movie.gif', stride=1, **kwargs):
         self.speak('making movie from {} images matching'.format(len(glob.glob(pattern))))
         self.speak('  {}'.format(pattern))
 
-
+        actualfilename = 'stride{}'.format(stride) + filename
         #moviecommand = 'ffmpeg -r:10 -b:1800 -i "{pattern}" {filename}'.format(**locals())
         #moviecommand = 'ffmpeg -r {fps} -f image2 -i {pattern} -vcodec libx264 {filename}'.format(**locals())
         #
         #pic%04d.png
-        moviecommand = 'convert -verbose -quality 100 -delay 10 {pattern} {filename}'.format(**locals())
+        moviecommand = 'convert -verbose -quality 100 -delay 10 {pattern} {actualfilename}'.format(**locals())
         print(moviecommand)
         os.system(moviecommand)
 
