@@ -8,7 +8,7 @@ def name2color(name):
 	'''
 	return co.hex2color(co.cnames[name])
 
-def one2another(bottom='white', top='red', alphatop=1.0, alphabottom=1.0, N=256):
+def one2another(bottom='white', top='red', alphabottom=1.0, alphatop=1.0, N=256):
 	'''
 	Create a cmap that goes smoothly (linearly in RGBA) from "bottom" to "top".
 	'''
