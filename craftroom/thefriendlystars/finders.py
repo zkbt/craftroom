@@ -15,7 +15,6 @@ class Finder:
         self.panels = constellation
 
 
-
 # define som
 class Finder(Talker):
     '''

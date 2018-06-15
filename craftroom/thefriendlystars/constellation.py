@@ -4,6 +4,7 @@ from .imports import *
 get = coord.SkyCoord.from_name
 
 
+
 class Constellation(Talker):
     '''
     A Constellation is collection of stars
@@ -86,7 +87,7 @@ class Constellation(Talker):
         try:
             # if proper motions exist
             newra = self.objects.ra + self.objects.pm_ra_cosdec/np.cos(self.objects.dec)*dt
-            newdec = self.objects.dec + self.objects.pm_dec/np.cos(self.objects.dec)*dt
+            newdec = self.objects.dec + self.objects.pm_dec*dt
         except TypeError:
             # assume no proper motions, if they're not defined
             newra = self.objects.ra
