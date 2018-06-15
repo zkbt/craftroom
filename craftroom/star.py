@@ -109,8 +109,8 @@ class Star(Talker):
 		self.table = Simbad.query_object(name)
 
 		# pull out the official Simbad name
-		self.name = name
-		self.simbadname = self.table['MAIN_ID'].data[0]
+		self.name = str(name)
+		self.simbadname = str(self.table['MAIN_ID'].data[0])
 		if len(self.simbadname) < len(self.name):
 			self.speak( "renaming {1} to {0}".format(self.simbadname, self.name))
 			self.name = self.simbadname

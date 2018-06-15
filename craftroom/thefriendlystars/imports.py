@@ -1,5 +1,7 @@
+import warnings
 
 import matplotlib.pyplot as plt
+import matplotlib.animation as ani
 import numpy as np
 
 
@@ -9,10 +11,11 @@ import astropy.units as u, astropy.coordinates as coord
 from astropy.time import Time
 from astropy.table import Table
 
-from craftroom.star import Star
-from craftroom.Talker import Talker
-from craftroom.oned import mad
-
 
 import astroquery.gaia
 import astroquery.mast
+
+from tqdm import tqdm
+
+
+from ..Talker import Talker

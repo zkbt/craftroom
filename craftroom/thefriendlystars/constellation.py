@@ -3,8 +3,6 @@ from .imports import *
 # a shortcut getting the coordinates for an object, by its name
 get = coord.SkyCoord.from_name
 
-
-
 class Constellation(Talker):
     '''
     A Constellation is collection of stars
@@ -18,7 +16,7 @@ class Constellation(Talker):
                         magnitudelimit=20,
                         **kw):
         '''
-        Initialize at Constellation object.
+        Initialize a Constellation object.
 
         Parameters
         ----------
@@ -80,14 +78,16 @@ class Constellation(Talker):
         except AttributeError:
             # if anyting else, assume it is a decimalyear (float or string)
             year = epoch
-        newobstime = Time(year, format='decimalyear')
-        dt = newobstime - self.objects.obstime
+        with warnings.catch_warnings() :
+            warnings.filterwarnings("ignore")
+            newobstime = Time(year, format='decimalyear')
+            dt = newobstime - self.objects.obstime
 
         # calculate the new positions, propagated linearly by dt
         try:
             # if proper motions exist
-            newra = self.objects.ra + self.objects.pm_ra_cosdec/np.cos(self.objects.dec)*dt
-            newdec = self.objects.dec + self.objects.pm_dec*dt
+            newra = (self.objects.ra + self.objects.pm_ra_cosdec/np.cos(self.objects.dec)*dt).to(u.deg)
+            newdec = (self.objects.dec + self.objects.pm_dec*dt).to(u.deg)
         except TypeError:
             # assume no proper motions, if they're not defined
             newra = self.objects.ra
@@ -97,7 +97,7 @@ class Constellation(Talker):
         # return as SkyCoord object
         return coord.SkyCoord(ra=newra, dec=newdec, obstime=newobstime)
 
-    def plot(self, epoch=2000.0, sizescale=10, color=None, **kw):
+    def plot(self, epoch=2000.0, sizescale=10, color=None, alpha=0.5, edgecolor='none', **kw):
         '''
         Plot the ra and dec of the coordinates,
         at a given epoch, scaled by their magnitude.
@@ -116,7 +116,7 @@ class Constellation(Talker):
         Returns
         -------
 
-        plotted : outputs f
+        plotted : outputs from the plots
         '''
 
         # pull out the coordinates at this epoch
@@ -126,11 +126,40 @@ class Constellation(Talker):
         size = np.maximum(sizescale*(1 + self._magnitudelimit - self.magnitude), 0)
 
         # make a scatter plot of the RA + Dec
-        return plt.scatter(coords.ra, coords.dec,
+        scatter = plt.scatter(coords.ra, coords.dec,
                                     s=size,
                                     color=color or self.color,
                                     label=self.name,
+                                    alpha=alpha,
+                                    edgecolor=edgecolor,
                                     **kw)
+
+        return scatter
+
+    def finder(self, epoch=2015.5, figsize=(7,7), **kwargs):
+        plt.figure(figsize=figsize)
+        scatter = self.plot(epoch=epoch, **kwargs)
+        plt.xlabel('Right Ascension'); plt.ylabel('Declination')
+        plt.title('{} in {:.1f}'.format(self.name, epoch))
+        plt.gca().set_aspect(1.0/np.cos(self.center.dec))
+        return scatter
+
+    def animate(self, filename='constellation.mp4', epochs=[1900,2100], dt=5, dpi=300, fps=10, **kw):
+
+
+        scatter = self.finder(epochs[0], **kw)
+        figure = plt.gcf()
+        writer = ani.writers['ffmpeg'](fps=fps)
+
+        with writer.saving(figure, filename, dpi or figure.get_dpi()):
+            for epoch in tqdm(np.arange(epochs[0], epochs[1]+dt, dt)):
+
+                # update the illustration to a new time
+                coords = self.atEpoch(epoch)
+                scatter.set_offsets(list(zip(coords.ra.value, coords.dec.value)))
+                plt.title('{} in {:.1f}'.format(self.name, epoch))
+
+                writer.grab_frame()
 
     def crossMatchTo(self, reference, radius=1*u.arcsec, visualize=False):
         '''
@@ -198,10 +227,13 @@ class Gaia(Constellation):
         '''
 
         # send the query to the Gaia archive
-        self._gaia_job = astroquery.gaia.Gaia.launch_job(query)
+        with warnings.catch_warnings() :
+            warnings.filterwarnings("ignore")
 
-        # return the table of results
-        return self._gaia_job.get_results()
+            self._gaia_job = astroquery.gaia.Gaia.launch_job(query)
+
+            # return the table of results
+            return self._gaia_job.get_results()
 
     def coneSearch(self, center, radius=3*u.arcmin, magnitudelimit=20):
         '''
@@ -226,11 +258,10 @@ class Gaia(Constellation):
         # define a query for cone search surrounding this center
         conequery = """SELECT source_id,ra,ra_error,dec,dec_error,pmra, pmra_error, pmdec, pmdec_error, parallax, parallax_error, phot_g_mean_mag, phot_bp_mean_mag, phot_rp_mean_mag, radial_velocity, radial_velocity_error, phot_variable_flag, teff_val, a_g_val FROM gaiadr2.gaia_source WHERE CONTAINS(POINT('ICRS',gaiadr2.gaia_source.ra,gaiadr2.gaia_source.dec),CIRCLE('ICRS',{},{},{}))=1 and phot_g_mean_mag < {}""".format(center.ra.deg, center.dec.deg, radius.to(u.deg).value, magnitudelimit)
 
-
         # run the query
         self.speak('querying Gaia DR2, centered on {} with radius {}, for G<{}'.format(center, radius, magnitudelimit))
         self._table = self.query(conequery)
-
+        self.speak(conequery)
         # tidy up quantities, setting motions to 0 if poorly defined
         for key in ['pmra', 'pmdec', 'parallax', 'radial_velocity']:
             bad = self._table[key].mask
@@ -244,8 +275,8 @@ class Gaia(Constellation):
                                         dec=self._table['dec'].data*u.deg,
                                         pm_ra_cosdec=self._table['pmra'].data*u.mas/u.year,
                                         pm_dec=self._table['pmdec'].data*u.mas/u.year,
-                                        radial_velocity=self._table['radial_velocity'].data*u.km/u.s,
-                                        distance=1000*u.pc/self._table['parallax'].data,
+                                        #radial_velocity=self._table['radial_velocity'].data*u.km/u.s,
+                                        #distance=1000*u.pc/self._table['parallax'].data, # weirdly, messed with RA + Dec signs if distance is infinite
                                         obstime=Time(epoch, format='decimalyear'))
 
         self.magnitudes = dict(         G=self._table['phot_g_mean_mag'].data,
