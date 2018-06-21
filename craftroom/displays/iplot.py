@@ -45,8 +45,8 @@ from ..Talker import Talker
 # turn off default key mappings for matplotlib
 # otherwise they may overlap with your custom ones
 for k in plt.rcParams.keys():
-    if 'keymap' in k:
-        plt.rcParams[k] = ''
+	if 'keymap' in k:
+		plt.rcParams[k] = ''
 
 
 class iplot(Talker):
@@ -88,7 +88,13 @@ class iplot(Talker):
 	def onKeyRelease(self, event):
 		'''when a keyboard button is released, stop the loop'''
 		self.keyreleased = event
-		self.stop()
+
+		try:
+			assert(event.key.lower() != 'alt')
+			assert(event.key.lower() != 'control')
+			self.stop()
+		except AssertionError:
+			pass
 
 	def onEnterAxes(self, event):
 		#print 'enter_axes', event.inaxes
@@ -137,26 +143,23 @@ class iplot(Talker):
 		# warn what's happening
 		self.speak('waiting for a key to be pressed and released')
 		# start the loop
-		self.cids = [self.watchfor('key_press_event', self.onKeyPress)]
-
-		# this function will be called when the key is pressed
-		self.whenpressed = whenpressed
+		self.cids = [self.watchfor('key_release_event', self.onKeyRelease)]
 
 		# start the loop (it'll end when key is pressed)
 		self.startloop()
-		self.speak('"{}" pressed at {}, {}'.format(self.keypressed.key, self.keypressed.xdata, self.keypressed.ydata))
+		self.speak('"{}" pressed at {}, {}'.format(self.keyreleased.key, self.keyreleased.xdata, self.keyreleased.ydata))
 
 		# return the key that was pressed
-		return self.keypressed
+		return self.keyreleased
 
 	def watchfor(self, *args):
 		'''This is a shortcut for mpl_connect.
 
-            For example,
-                self.watchfor('key_press_event', self.onKeyPress)
-            will set up a connection that will cause the function
-            self.onKeyPress to be called (and passed a KeyEvent) when
-            a key_press_event occurs.'''
+			For example,
+				self.watchfor('key_press_event', self.onKeyPress)
+			will set up a connection that will cause the function
+			self.onKeyPress to be called (and passed a KeyEvent) when
+			a key_press_event occurs.'''
 		return self.figure.canvas.mpl_connect(*args)
 
 	def stopwatching(self, cids):
@@ -178,13 +181,13 @@ class iplot(Talker):
 		self.stopwatching(self.cids)
 
 def test():
-    import numpy as np
-    i = iplot(1,1)
-    i.subplot(0,0)
-    a = i.axes['ax0']
-    a.plot(np.random.normal(0,1,10))
-    plt.draw()
-    key = i.getKeyboard()
-    print(key)
-    return key
+	import numpy as np
+	i = iplot(1,1)
+	i.subplot(0,0)
+	a = i.axes['ax0']
+	a.plot(np.random.normal(0,1,10))
+	plt.draw()
+	key = i.getKeyboard()
+	print(key)
+	return key
 #print(i.getKeyboard(2))
