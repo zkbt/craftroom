@@ -34,7 +34,7 @@ def plotboxy(x, y, **kwargs):
 	# plot those constructed arrays
 	plt.plot(plot_x, plot_y, **kwargs)
 
-def fluxconservingresample(xin, yin, xout, test=False, visualize=False, demo=False,
+def fluxconservingresample(xin_unsorted, yin_unsorted, xout, test=False, visualize=False, demo=False,
 							treatnanas=0.0):
 	'''
 	Starting from some initial x and y, resample onto a different grid
@@ -42,6 +42,11 @@ def fluxconservingresample(xin, yin, xout, test=False, visualize=False, demo=Fal
 
 	When including the entire range of xin, sum(yout) == sum(yin) should be true.
 	'''
+
+	# sort to make sure x is strictly increasing
+	s = np.argsort(xin_unsorted)
+	xin = xin_unsorted[s]
+	yin = yin_unsorted[s]
 
 	# set up the bins, to calculate cumulative distribution of y?
 	xinbinsize = binsizes(xin)
