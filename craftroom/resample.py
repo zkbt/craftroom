@@ -140,7 +140,7 @@ def fluxconservingresample(xin_unsorted, yin_unsorted, xout, test=False, visuali
 	# return the resampled y-values
 	return yout
 
-def bintogrid(x, y, unc, newx=None, dx=None, weighting='inversevariance'):
+def bintogrid(x, y, unc=None, newx=None, dx=None, weighting='inversevariance', drop_nans=True):
 	'''
 	x = the independent variable (wavelength)
 	y = the measurement (transit depth)
@@ -163,8 +163,11 @@ def bintogrid(x, y, unc, newx=None, dx=None, weighting='inversevariance'):
 	with np.errstate(divide='ignore',invalid='ignore'):
 
 		# resample the sums onto that new grid (in logarithmic space)
-		if weighting == 'inversevariance':
-			weights = 1/unc**2
+		if unc is None:
+			weights = np.ones_like(x)
+		else:
+			if weighting == 'inversevariance':
+				weights = 1/unc**2
 		numerator = fluxconservingresample(x, y*weights, newx, visualize=False)
 		denominator = fluxconservingresample(x, weights, newx, visualize=False)
 
@@ -174,11 +177,18 @@ def bintogrid(x, y, unc, newx=None, dx=None, weighting='inversevariance'):
 		# the standard error on the means, for those bins
 		newunc = np.sqrt(1/denominator)
 
+	if drop_nans:
+		ok = np.isfinite(newy)
+	else:
+		ok = np.ones_like(x).astype(np.bool)
 	# return binned x, y, unc
-	return newx, newy, newunc
+	if unc is None:
+		return newx[ok], newy[ok]
+	else:
+		return newx[ok], newy[ok], newunc[ok]
 
 
-def bintoR(x, y, unc, R=50, xlim=None, weighting='inversevariance'):
+def bintoR(x, y, unc=None, R=50, xlim=None, weighting='inversevariance'):
 	'''
 	x = the independent variable (wavelength)
 	y = the measurement (transit depth)
@@ -211,8 +221,13 @@ def bintoR(x, y, unc, R=50, xlim=None, weighting='inversevariance'):
 	newlnx = np.arange(lnxbottom, lnxtop + dnewlnx, dnewlnx)
 
 	# now do the binning on a uniform grid of lnx
-	blnx, by, bunc = bintogrid(lnx, y, unc, newx=newlnx, weighting=weighting)
-	return np.exp(blnx), by, bunc
+
+	if unc is None:
+		blnx, by = bintogrid(lnx, y, unc, newx=newlnx, weighting=weighting)
+		return np.exp(blnx), by
+	else:
+		blnx, by, bunc = bintogrid(lnx, y, unc, newx=newlnx, weighting=weighting)
+		return np.exp(blnx), by, bunc
 
 
 

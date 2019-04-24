@@ -78,10 +78,7 @@ def find_two_nearest(array,value,verbose=False):
 	nearest = [array[left], array[right]]
 
 	if verbose:
-		print
-		for k in locals().keys():
-			print('{0:>10} = {1}'.format(k, locals()[k]))
-		print
+		print('{0} is closest to {1}'.format(value, nearest))
 	return nearest
 
 def interpolation_weights(bounds, value, verbose=True):
