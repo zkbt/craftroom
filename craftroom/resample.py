@@ -180,7 +180,7 @@ def bintogrid(x, y, unc=None, newx=None, dx=None, weighting='inversevariance', d
 	if drop_nans:
 		ok = np.isfinite(newy)
 	else:
-		ok = np.ones_like(x).astype(np.bool)
+		ok = np.ones_like(newy).astype(np.bool)
 	# return binned x, y, unc
 	if unc is None:
 		return newx[ok], newy[ok]
